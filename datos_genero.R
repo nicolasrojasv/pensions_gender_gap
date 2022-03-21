@@ -1,29 +1,29 @@
-# Web Scraping Género
+# Web Scraping GÃ©nero
 
 #Limpiar ambiente
 rm(list = ls())
 options(scipen = 999)
 
-#Librerías
+#LibrerÃ­as
 sapply(c("data.table","compiler","lubridate","readxl","readr","tidyr","RSelenium","rvest", "purrr","stringr",
          "zoo", "stringi"),
        require, character.only = T, quietly = T)
 
 #Escritorio
-setwd("//192.168.100.101/g/nicolas_rojas/viz_webpage/genero/brechas_pensiones/dashboard/indicadores")
+#setwd("")
 
 #Cargar datos
-poblacion <- fread("input_dashboard/poblacion_celade.csv", dec= ",", na.strings = "NA")
-afiliados <- fread("input_dashboard/afiliados.csv", dec= ",", na.strings = "NA")
-cotizantes <- fread("input_dashboard/cotizantes.csv", dec= ",", na.strings = "NA")
-saldo_prom <- fread("input_dashboard/saldo_prom.csv", dec = ",", na.strings = "NA")
-saldo_prom_edad <- fread("input_dashboard/saldo_prom_edad.csv", dec = ",", na.strings = "NA")
-pensiones_pagadas <- fread("input_dashboard/pensiones_pagadas.csv", dec = ",", na.strings = "NA")
-nuevos_pensionados <- fread("input_dashboard/nuevos_pensionados.csv", dec = ",", na.strings = "NA")
-serie_uf <- fread("input_dashboard/serie_uf.csv", dec = ",", na.strings = "NA")
-datos_sps <- fread("input_dashboard/datos_sps.csv", dec = ",", na.strings = "NA", integer64 = "numeric")
+#poblacion <- fread("input_dashboard/poblacion_celade.csv", dec= ",", na.strings = "NA")
+#afiliados <- fread("input_dashboard/afiliados.csv", dec= ",", na.strings = "NA")
+#cotizantes <- fread("input_dashboard/cotizantes.csv", dec= ",", na.strings = "NA")
+#saldo_prom <- fread("input_dashboard/saldo_prom.csv", dec = ",", na.strings = "NA")
+#saldo_prom_edad <- fread("input_dashboard/saldo_prom_edad.csv", dec = ",", na.strings = "NA")
+#pensiones_pagadas <- fread("input_dashboard/pensiones_pagadas.csv", dec = ",", na.strings = "NA")
+#nuevos_pensionados <- fread("input_dashboard/nuevos_pensionados.csv", dec = ",", na.strings = "NA")
+#serie_uf <- fread("input_dashboard/serie_uf.csv", dec = ",", na.strings = "NA")
+#datos_sps <- fread("input_dashboard/datos_sps.csv", dec = ",", na.strings = "NA", integer64 = "numeric")
 
-#Fechas Información disponibles
+#Fechas InformaciÃ³n disponibles
 fechas_consulta <- gsub(pattern = "-|[0-9]{2}$", replacement = "", as.character(seq(from = as.Date("1990-01-01"),
                                                                                     to = today(),
                                                                                     by = "month")))
@@ -32,7 +32,7 @@ fechas_consulta <- gsub(pattern = "-|[0-9]{2}$", replacement = "", as.character(
 ### DATOS POBLACION ####
 ########################
 
-#Función para descargar los datos de poblacion desde CELADE
+#FunciÃ³n para descargar los datos de poblacion desde CELADE
 descargar_datos_poblacion <- function() {
   
   #Crear archivo temporal, descargar los datos y guardarlos en el archivo
@@ -65,25 +65,25 @@ descargar_datos_poblacion <- cmpfun(descargar_datos_poblacion)
 #Extraer datos poblacionales
 poblacion <- descargar_datos_poblacion()
 
-#Función para ordenar datos de población
+#FunciÃ³n para ordenar datos de poblaciÃ³n
 ordenar_dt <- function(bd) {
   
   #Crear variabla auxiliar para las edades
   bd[, aux := rep(c(1:length(unique(bd$edad))),
                          times = nrow(bd)/length(unique(bd$edad)))]
   
-  #Base con el número de hombres y mujeres en edad de trabajar
+  #Base con el nÃºmero de hombres y mujeres en edad de trabajar
   edad_trabajar <- bd[(sexo == "hombres" & !(aux %between% c(1,3) | aux %between% c(14,21)))
                       | (sexo == "mujeres" & !(aux %between% c(1,3) | aux %between% c(13,21))),
                       .(poblacion_edad_trabajar = sum(poblacion_total)),
                       by =.(fecha, sexo)]
   
-  #Base con el número de hombres y mujeres mayores de 18 años
+  #Base con el nÃºmero de hombres y mujeres mayores de 18 aÃ±os
   adultos <- bd[(sexo == "hombres" & !aux %between% c(1,3)) | (sexo == "mujeres" & !aux %between% c(1,3)),
                 .(poblacion_adultos = sum(poblacion_total)),
                 by =.(fecha, sexo)]
   
-  #Base con el número de hombres y mujeres en edad de jubilación
+  #Base con el nÃºmero de hombres y mujeres en edad de jubilaciÃ³n
   edad_jubilacion <- bd[(sexo == "hombres" & aux %between% c(14,21)) | (sexo == "mujeres" & aux %between% c(13,21)),
                         .(poblacion_edad_jubilacion = sum(poblacion_total)),
                         by =.(fecha, sexo)]
@@ -91,7 +91,7 @@ ordenar_dt <- function(bd) {
   #Unir las bases
   bd <- merge(merge(edad_trabajar, adultos, by = c("fecha", "sexo")), edad_jubilacion, by = c("fecha", "sexo"))
   
-  #Repetir cada dato cuatro veces para emparejarlos por trimestre con las demás bases
+  #Repetir cada dato cuatro veces para emparejarlos por trimestre con las demÃ¡s bases
   bd <- bd[rep(seq_len(nrow(bd)), each = 4),]
   bd[, mes := rep(c("03","06","09","12"), times = nrow(bd)/4)][, fecha := paste(fecha, mes, "01", sep = "-")
                                                                ][,mes := NULL]
@@ -109,16 +109,16 @@ write.csv2(poblacion, file = "input_dashboard/poblacion_celade.csv", row.names =
 ### AFILIADOS  ####
 ###################
 
-#Función para descargar datos de afiliados al sistema de pensiones
+#FunciÃ³n para descargar datos de afiliados al sistema de pensiones
 descargar_afiliados <- function(fechas) {
   
-  #Primera fuente de información para extraer los datos (archivo excel)
+  #Primera fuente de informaciÃ³n para extraer los datos (archivo excel)
   archivo_temporal <- tempfile(fileext = ".xls")
   url <- paste0("https://www.spensiones.cl/inf_estadistica/series_afp/afiliados/afiliados_tipo_sexo_afp.xls")
   download.file(url, destfile = archivo_temporal, mode = "wb", quiet = T)
   dt <- data.table(suppressMessages(read_excel(path = archivo_temporal, skip = 1)))[c(1:961),]
   
-  #Pasar a valor numérico las variables que corresponden
+  #Pasar a valor numÃ©rico las variables que corresponden
   cols <- grep("^VOL|^Vol",names(dt), value = T)
   dt[, (cols) := lapply(.SD, function(x) as.numeric(gsub("-", 0, x))), .SDcols = cols]
   
@@ -137,24 +137,24 @@ descargar_afiliados <- function(fechas) {
   dt <- separate(dt, "factor", into = c("tipo_afiliado", "sexo"), sep = "_")
   dt[, sexo := gsub("sininfo", "s/i", sexo)]
   
-  #Segunda fuente de información si es que faltan datos en la primera fuente
-  #Crear lista vacía para guardar las tablas de datos
+  #Segunda fuente de informaciÃ³n si es que faltan datos en la primera fuente
+  #Crear lista vacÃ­a para guardar las tablas de datos
   consolidado <- list()
   
-  #Conexión remota a Chrome
+  #ConexiÃ³n remota a Chrome
   remDr <- remoteDriver(remoteServerAddr = "192.168.100.34", port = 4445L, browserName = "chrome")
   remDr$open()
   
-  #Descargar la información para cada fecha
+  #Descargar la informaciÃ³n para cada fecha
   for (fecha in fechas) {
     
-    #Crear un índice para guardar las tablas de datos en la lista
+    #Crear un Ã­ndice para guardar las tablas de datos en la lista
     i <- match(fecha, fechas)
     
     #No descargar datos para fechas que han sido descargadas en la primera fuente
     if (fecha %in% unique(gsub("-|01$","",x = dt$fecha))) next
     
-    #Navegar a la web de la SP y descargar la información
+    #Navegar a la web de la SP y descargar la informaciÃ³n
     remDr$navigate("https://www.spensiones.cl/apps/centroEstadisticas/paginaCuadrosCCEE.php?menu=sci&menuN1=afil&menuN2=afp")
     tryCatch({
       
@@ -165,7 +165,7 @@ descargar_afiliados <- function(fechas) {
       webelem$clickElement()
       webelem <- remDr$findElements(using = "css", paste0("[value = 'Ver']"))
       
-      #Entrar a la página donde están los datos
+      #Entrar a la pÃ¡gina donde estÃ¡n los datos
       webelem[[3]]$clickElement()
       
       #Extraer el nombre de las columnas
@@ -188,7 +188,7 @@ descargar_afiliados <- function(fechas) {
       dt2 <- dt2[c(4:nrow(dt2))][!grepl("^Total",X1)]
       names(dt2) <- headers
       
-      #Transformar las columnas correspondientes a número y mayúscula a las AFP
+      #Transformar las columnas correspondientes a nÃºmero y mayÃºscula a las AFP
       cols <- names(dt2)[c(2:ncol(dt2))]
       dt2[, (cols) := lapply(.SD, function(x) as.numeric(gsub("\\.", "", x))), .SDcols = cols][, afp := str_to_title(afp)]
       
@@ -208,7 +208,7 @@ descargar_afiliados <- function(fechas) {
 }
 descargar_afiliados <- cmpfun(descargar_afiliados) 
 
-#Descargar serie de número de afiliados
+#Descargar serie de nÃºmero de afiliados
 afiliados <- descargar_afiliados(grep("03$|06$|09$|12$", fechas_consulta, value = T))
 
 #Guardar datos
@@ -218,10 +218,10 @@ write.csv2(afiliados, file = "input_dashboard/afiliados.csv", row.names = F, na 
 ### COTIZANTES E INGRESO IMPONIBLE ####
 #######################################
 
-#Función para descargar datos de cotizantes del sistema de pensiones
+#FunciÃ³n para descargar datos de cotizantes del sistema de pensiones
 descargar_cotizantes <- function() {
   
-  #Crear archivo temporal y guardar ahí el excel
+  #Crear archivo temporal y guardar ahÃ­ el excel
   archivo_temporal <- tempfile(fileext = ".xls")
   url <- paste0("https://www.spensiones.cl/inf_estadistica/series_afp/cotizantes/cotizantes_ingreso_imponible_promedio.xls")
   download.file(url, destfile = archivo_temporal, mode = "wb", quiet = T)
@@ -236,38 +236,38 @@ descargar_cotizantes <- function() {
                                                              "numeric","numeric","numeric","numeric"))))
   
   #Cambiar el nombre de las columnas
-  dt <- dt[,.(fecha = Fecha, afp = AFP, n_dependientes_total = `N° de Cotizantes Dependientes`,
-              n_dependientes_hombres = `N° de Cotizantes Dependientes Masculino`, 
-              n_dependientes_mujeres = `N° de Cotizantes Dependientes Femenino`, 
-              n_dependientes_sininfo = `N° de Cotizantes Dependientes sin información de sexo`, 
-              n_independientes_total = `N° de Cotizantes Independientes`, 
-              n_independientes_hombres = `N° de Cotizantes Independientes Masculino`,
-              n_independientes_mujeres = `N° de Cotizantes Independientes Femenino`,
-              n_independientes_sininfo = `N° de Cotizantes Independientes sin información de sexo`,
-              n_voluntarios_total = `N° de Cotizantes Afil. voluntarios`, 
-              n_voluntarios_hombres = `N° de Cotizantes Afil. voluntarios Masculino`,
-              n_voluntarios_mujeres = `N° de Cotizantes Afil. voluntarios Femenino`,
-              n_voluntarios_sininfo = `N° de Cotizantes Afil. voluntarios sin información de sexo`,
-              n_total_ambossexo = `N° de Cotizantes`,
-              n_total_hombres = `N° de Cotizantes  Masculino`,
-              n_total_mujeres = `N° de Cotizantes  Femenino`, 
-              n_total_sininfo = `N° de Cotizantes  sin información de sexo`,
+  dt <- dt[,.(fecha = Fecha, afp = AFP, n_dependientes_total = `NÂ° de Cotizantes Dependientes`,
+              n_dependientes_hombres = `NÂ° de Cotizantes Dependientes Masculino`, 
+              n_dependientes_mujeres = `NÂ° de Cotizantes Dependientes Femenino`, 
+              n_dependientes_sininfo = `NÂ° de Cotizantes Dependientes sin informaciÃ³n de sexo`, 
+              n_independientes_total = `NÂ° de Cotizantes Independientes`, 
+              n_independientes_hombres = `NÂ° de Cotizantes Independientes Masculino`,
+              n_independientes_mujeres = `NÂ° de Cotizantes Independientes Femenino`,
+              n_independientes_sininfo = `NÂ° de Cotizantes Independientes sin informaciÃ³n de sexo`,
+              n_voluntarios_total = `NÂ° de Cotizantes Afil. voluntarios`, 
+              n_voluntarios_hombres = `NÂ° de Cotizantes Afil. voluntarios Masculino`,
+              n_voluntarios_mujeres = `NÂ° de Cotizantes Afil. voluntarios Femenino`,
+              n_voluntarios_sininfo = `NÂ° de Cotizantes Afil. voluntarios sin informaciÃ³n de sexo`,
+              n_total_ambossexo = `NÂ° de Cotizantes`,
+              n_total_hombres = `NÂ° de Cotizantes  Masculino`,
+              n_total_mujeres = `NÂ° de Cotizantes  Femenino`, 
+              n_total_sininfo = `NÂ° de Cotizantes  sin informaciÃ³n de sexo`,
               ing_dependientes_total = `Ing. Imp. Prom. Cotizantes Dependientes`,
               ing_dependientes_hombres = `Ing. Imp. Prom. Cotizantes Dependientes Masculino`,
               ing_dependientes_mujeres = `Ing. Imp. Prom. Cotizantes Dependientes Femenino`,
-              ing_dependientes_sininfo = `Ing. Imp. Prom. Cotizantes Dependientes sin información de sexo`,
+              ing_dependientes_sininfo = `Ing. Imp. Prom. Cotizantes Dependientes sin informaciÃ³n de sexo`,
               ing_independientes_total = `Ing. Imp. Prom. Cotizantes Independientes`,
               ing_independientes_hombres = `Ing. Imp. Prom. Cotizantes Independientes Masculino`,
               ing_independientes_mujeres = `Ing. Imp. Prom. Cotizantes Independientes Femenino`,
-              ing_independientes_sininfo = `Ing. Imp. Prom. Cotizantes Independientes sin información de sexo`,
+              ing_independientes_sininfo = `Ing. Imp. Prom. Cotizantes Independientes sin informaciÃ³n de sexo`,
               ing_voluntarios_total = `Ing. Imp. Prom. Cotizantes Afil. voluntarios`,
               ing_voluntarios_hombres = `Ing. Imp. Prom. Cotizantes Afil. voluntarios Masculino`,
               ing_voluntarios_mujeres = `Ing. Imp. Prom. Cotizantes Afil. voluntarios Femenino`,
-              ing_voluntarios_sininfo = `Ing. Imp. Prom. Cotizantes Afil. voluntarios sin información de sexo`,
+              ing_voluntarios_sininfo = `Ing. Imp. Prom. Cotizantes Afil. voluntarios sin informaciÃ³n de sexo`,
               ing_total_ambossexo = `Ing. Imp. Prom. Cotizantes`,
               ing_total_hombres =  `Ing. Imp. Prom. Cotizantes  Masculino`,
               ing_total_mujeres = `Ing. Imp. Prom. Cotizantes  Femenino`,
-              ing_total_sininfo = `Ing. Imp. Prom. Cotizantes  sin información de sexo`)]
+              ing_total_sininfo = `Ing. Imp. Prom. Cotizantes  sin informaciÃ³n de sexo`)]
   
   #Pasar la tabla de ancho a largo y crear variables numero, monto, tipo de cotizantes y sexo
   dt <- melt(dt, id.vars = c(1,2), variable.name = "factor", value.name = "num_monto")
@@ -297,10 +297,10 @@ write.csv2(cotizantes, file = "input_dashboard/cotizantes.csv", row.names = F, n
 ### SALDO PROMEDIO ###
 ######################
 
-#Descargar información del saldo promedio por sexo
+#Descargar informaciÃ³n del saldo promedio por sexo
 descargar_saldo_prom <- function(fechas, bd) {
   
-  #Control para que corra igual la función por si la base de datos no se encuentra en el ambiente de trabajo
+  #Control para que corra igual la funciÃ³n por si la base de datos no se encuentra en el ambiente de trabajo
   if (missing(bd)) {
     bd <- data.table(fecha = character(), sexo = character(), num_afiliados = integer(), 
                      saldo_prom_miles_pesos = numeric())
@@ -308,29 +308,29 @@ descargar_saldo_prom <- function(fechas, bd) {
     bd <- bd
   }
   
-  #Lista vacía para ir guardando los datos
+  #Lista vacÃ­a para ir guardando los datos
   consolidado <- list()
   
-  #Conexión remota a Chrome
+  #ConexiÃ³n remota a Chrome
   remDr <- remoteDriver(remoteServerAddr = "192.168.100.34", port = 4445L, browserName = "chrome")
   remDr$open()
   
   for (fecha in fechas) {
     
-    #Si es que los datos ya están en la base, saltar esa fecha de descarga
+    #Si es que los datos ya estÃ¡n en la base, saltar esa fecha de descarga
     if (fecha %in% unique(gsub(pattern = "-|01$","",x = bd$fecha))) next
     
     #indice para guardar la tabla de datos en el consolidado
     i <- match(fecha,fechas)
     
-    #Ir a la página donde se descarga la info y hacer click en los datos de saldo promedio y afiliados por sexo
+    #Ir a la pÃ¡gina donde se descarga la info y hacer click en los datos de saldo promedio y afiliados por sexo
     remDr$navigate(paste0("https://www.spensiones.cl/apps/centroEstadisticas/paginaCuadrosCCEE.php?menu=sci&menuN1",
                           "=afil&menuN2=sdomovcci"))
     
     
     tryCatch({
       
-      #Indicar la fecha en la página web y entrar al cuadro estadístico
+      #Indicar la fecha en la pÃ¡gina web y entrar al cuadro estadÃ­stico
       webelem <- remDr$findElement(using = "css", paste0("[value = 'inf_estadistica/aficot/trimestral/",
                                                          year(ym(fecha)),
                                                          "/",substr(fecha,5,6),"/04C']"))
@@ -364,7 +364,7 @@ descargar_saldo_prom <- function(fechas, bd) {
         cols <- names(dt2)[2:length(dt2)]
         dt2[, (cols) := lapply(.SD, function(x) as.numeric(gsub("\\.", "", x))), .SDcols = cols]
         
-        #Ordenar la tabla. Crear las variables fecha, número de afiliados y sexo
+        #Ordenar la tabla. Crear las variables fecha, nÃºmero de afiliados y sexo
         dt3 <- dt2[,.(num_afiliados_hombres = sum(num_afiliados_hombres),
                       num_afiliados_mujeres = sum(num_afiliados_mujeres),
                       `num_afiliados_s/i` = sum(`num_afiliados_s/i`))]
@@ -482,10 +482,10 @@ write.csv2(saldo_prom, file = "input_dashboard/saldo_prom.csv", row.names = F, n
 ### SALDO PROMEDIO POR EDAD ###
 ###############################
 
-#Descargar información del saldo promedio por edad y sexo
+#Descargar informaciÃ³n del saldo promedio por edad y sexo
 descargar_saldo_prom_edad <- function(fechas, bd) {
   
-  #Control por si la base de datos no se encuentra en el ambiente de trabajo y que corra igual la función
+  #Control por si la base de datos no se encuentra en el ambiente de trabajo y que corra igual la funciÃ³n
   if (missing(bd)) {
     bd <- data.table(fecha = character(), edad = character(), sexo = character(), num_afiliados = integer(), 
                      saldo_prom_miles_pesos = numeric())
@@ -493,29 +493,29 @@ descargar_saldo_prom_edad <- function(fechas, bd) {
     bd <- bd
   }
   
-  #Lista vacía para ir guardando las tablas de datos
+  #Lista vacÃ­a para ir guardando las tablas de datos
   consolidado <- list()
   
-  #Conexión remota a Chrome
+  #ConexiÃ³n remota a Chrome
   remDr <- remoteDriver(remoteServerAddr = "192.168.100.34", port = 4445L, browserName = "chrome")
   remDr$open()
   
   for (fecha in fechas) {
     
-    #Si es que los datos ya están en la base, saltar esa fecha de descarga
+    #Si es que los datos ya estÃ¡n en la base, saltar esa fecha de descarga
     if (fecha %in% unique(gsub(pattern = "-|01$","",x = bd$fecha))) next
     
     #indice para guardar la tabla en el consolidado
     i <- match(fecha,fechas)
     
-    #Ir a la página donde se descarga la info y hacer click en los datos de saldo promedio y afiliados por sexo
+    #Ir a la pÃ¡gina donde se descarga la info y hacer click en los datos de saldo promedio y afiliados por sexo
     remDr$navigate(paste0("https://www.spensiones.cl/apps/centroEstadisticas/paginaCuadrosCCEE.php?menu=sci&menuN1",
                           "=afil&menuN2=sdomovcci"))
     
     
     tryCatch({
       
-      #Entar a la página según la fecha
+      #Entar a la pÃ¡gina segÃºn la fecha
       webelem <- remDr$findElement(using = "css", paste0("[value = 'inf_estadistica/aficot/trimestral/",
                                                          year(ym(fecha)),
                                                          "/",substr(fecha,5,6),"/04A']"))
@@ -534,7 +534,7 @@ descargar_saldo_prom_edad <- function(fechas, bd) {
         head1 <- gsub("saldo prom\\. cta\\. cap\\. individual\\(miles de pesos\\)", "saldo_prom_miles_pesos", head1) 
         head2 <- as.character(as.matrix(html_table(read_html(remDr$getPageSource()[[1]]), 
                                                    dec = ",", fill = T, header = F)[[1]])[2,])
-        head2 <- head2 <- tolower(head2) ; head2 <- gsub(" \\(años\\)", "", head2)
+        head2 <- head2 <- tolower(head2) ; head2 <- gsub(" \\(aÃ±os\\)", "", head2)
         headers <- map_chr(1:length(head1), ~ {
           ifelse(!is.na(head1[.x]) & !is.na(head2[.x]), 
                  paste(head1[.x], head2[.x], sep = "_"),
@@ -550,7 +550,7 @@ descargar_saldo_prom_edad <- function(fechas, bd) {
         cols <- names(dt2)[2:length(dt2)]
         dt2[, (cols) := lapply(.SD, function(x) as.numeric(gsub("\\.", "", x))), .SDcols = cols]
         
-        #Ordenar la tabla y crear las columnas sexo, edad y número de afiliados
+        #Ordenar la tabla y crear las columnas sexo, edad y nÃºmero de afiliados
         dt3 <- dt2[,.(edad, num_afiliados_hombres, num_afiliados_mujeres, `num_afiliados_s/i`)]
         dt3[, fecha := paste(year(ym(fecha)), substr(fecha, 5,6), "01", sep = "-")]
         dt3 <- melt(dt3, id.vars = c("fecha", "edad") ,value.name = "num_afiliados", variable.factor = F, 
@@ -580,12 +580,12 @@ descargar_saldo_prom_edad <- function(fechas, bd) {
                                                    header = T)[[1]])[2,])
         head1 <- head1[!is.na(head1)]
         head1[1] <- NA_character_ ; head1 <- tolower(head1)
-        head1 <- head1[!grepl("edad \\(años\\)", head1)]
+        head1 <- head1[!grepl("edad \\(aÃ±os\\)", head1)]
         head1 <- gsub("numero de afiliados", "num_afiliados", head1)
         head1 <- gsub("saldo prom\\. cta\\. cap\\. individual\\(miles de pesos\\)", "saldo_prom_miles_pesos", head1) 
         head2 <- as.character(as.matrix(html_table(read_html(remDr$getPageSource()[[1]]), 
                                                    dec = ",", fill = T, header = T)[[1]])[3,])
-        head2 <- head2[!is.na(head2)] ; head2 <- tolower(head2) ; head2 <- gsub(" \\(años\\)", "", head2)
+        head2 <- head2[!is.na(head2)] ; head2 <- tolower(head2) ; head2 <- gsub(" \\(aÃ±os\\)", "", head2)
         headers <- map_chr(1:length(head1), ~ {
           ifelse(!is.na(head1[.x]) & !is.na(head2[.x]), 
                  paste(head1[.x], head2[.x], sep = "_"),
@@ -601,7 +601,7 @@ descargar_saldo_prom_edad <- function(fechas, bd) {
         cols <- names(dt2)[2:length(dt2)]
         dt2[, (cols) := lapply(.SD, function(x) as.numeric(gsub("\\.", "", x))), .SDcols = cols]
         
-        #Ordenar la tabla. Crear las columnas sexo, edad y número de afiliados
+        #Ordenar la tabla. Crear las columnas sexo, edad y nÃºmero de afiliados
         dt3 <- dt2[,.(edad, num_afiliados_hombres, num_afiliados_mujeres, `num_afiliados_s/i`)]
         dt3[,fecha := paste(year(ym(fecha)), substr(fecha, 5,6), "01", sep = "-")]
         dt3 <- melt(dt3, id.vars = c("fecha", "edad") ,value.name = "num_afiliados", variable.factor = F, 
@@ -650,13 +650,13 @@ try({
                                                    ifelse(edad == "Mas de 70", 71, edad)))]
   saldo_prom_edad_nuevo[, tramo_edad := cut(tramo_edad, breaks = c(0, 45, 50, 55, 60, 65, 70, 71), 
                                             ordered_result = T)]
-  saldo_prom_edad_nuevo[, tramo_edad2 := ifelse(tramo_edad == "(0,45]", "Hasta 45 años",
-                                         ifelse(tramo_edad == "(45,50]", "Entre 46 y 50 años",
-                                         ifelse(tramo_edad == "(50,55]", "Entre 51 y 55 años",
-                                         ifelse(tramo_edad == "(55,60]", "Entre 56 y 60 años",
-                                         ifelse(tramo_edad == "(60,65]", "Entre 61 y 65 años",
-                                         ifelse(tramo_edad == "(65,70]", "Entre 66 y 70 años",
-                                         "Más de 70 años"))))))]
+  saldo_prom_edad_nuevo[, tramo_edad2 := ifelse(tramo_edad == "(0,45]", "Hasta 45 aÃ±os",
+                                         ifelse(tramo_edad == "(45,50]", "Entre 46 y 50 aÃ±os",
+                                         ifelse(tramo_edad == "(50,55]", "Entre 51 y 55 aÃ±os",
+                                         ifelse(tramo_edad == "(55,60]", "Entre 56 y 60 aÃ±os",
+                                         ifelse(tramo_edad == "(60,65]", "Entre 61 y 65 aÃ±os",
+                                         ifelse(tramo_edad == "(65,70]", "Entre 66 y 70 aÃ±os",
+                                         "MÃ¡s de 70 aÃ±os"))))))]
   
 }, silent = T)
 
@@ -679,10 +679,10 @@ write.csv2(saldo_prom_edad, file = "input_dashboard/saldo_prom_edad.csv", row.na
 ### PENSIONES PAGADAS ###
 #########################
 
-#Función para descargar pensiones pagadas de la página de la SP
+#FunciÃ³n para descargar pensiones pagadas de la pÃ¡gina de la SP
 descargar_pensiones_pagadas <- function(fechas, bd) {
   
-  #Control para que corra igual la función por si la base de datos no se encuentra en el ambiente de trabajo
+  #Control para que corra igual la funciÃ³n por si la base de datos no se encuentra en el ambiente de trabajo
   if (missing(bd)) {
     bd <- data.table(fecha = character(), tipo_pension = character(), anios_cot = character(), sexo = character(), 
                      numero_pensionados = integer(), pension_autofinanciada_promedio_uf = numeric(),
@@ -692,13 +692,13 @@ descargar_pensiones_pagadas <- function(fechas, bd) {
     bd <- bd
   }
   
-  #Lista vacía para guardar los datos
+  #Lista vacÃ­a para guardar los datos
   consolidado <- list()
   
   #Descargar los archivos excel por fecha
   for (fecha in fechas) {
     
-    #Si es que los datos ya están en la base, saltar esa fecha de descarga
+    #Si es que los datos ya estÃ¡n en la base, saltar esa fecha de descarga
     if (fecha %in% unique(gsub(pattern = "-|01$","",x = bd$fecha))) next
     
     #indice para guardar la tabla de datos en el consolidado
@@ -716,12 +716,12 @@ descargar_pensiones_pagadas <- function(fechas, bd) {
         
         # Encabezado de los datos
         head1 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 2)))[1,])
-        head1 <- gsub("Tipo de pensión", "tipo_pension", head1)
-        head1 <- gsub("Tramos de años cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
+        head1 <- gsub("Tipo de pensiÃ³n", "tipo_pension", head1)
+        head1 <- gsub("Tramos de aÃ±os cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
         
         head2 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 3)))[1,])
-        head2 <- gsub("Pensión autofinanciada", "pension_autofinanciada", head2)
-        head2 <- gsub("Pensión total \\(.*\\)", "pension_total", head2) ; head2 <- gsub("Número", "numero", head2)
+        head2 <- gsub("PensiÃ³n autofinanciada", "pension_autofinanciada", head2)
+        head2 <- gsub("PensiÃ³n total \\(.*\\)", "pension_total", head2) ; head2 <- gsub("NÃºmero", "numero", head2)
         head2[1] <- head1[1] ; head2[2] <- head1[2]
         head2 <- tolower(na.locf(head2))
         
@@ -749,7 +749,7 @@ descargar_pensiones_pagadas <- function(fechas, bd) {
         dt <- dt[!is.na(mujeres_numero)][!grepl("Total", anios_cot)]
         
         dt[, anios_cot := gsub(">", "(", anios_cot)][, anios_cot := gsub(" y <=", ", ", anios_cot)]
-        dt[, anios_cot := gsub(" año", "", anios_cot)][, anios_cot := gsub("S/I \\(3\\)", "sin_info", anios_cot)]
+        dt[, anios_cot := gsub(" aÃ±o", "", anios_cot)][, anios_cot := gsub("S/I \\(3\\)", "sin_info", anios_cot)]
         dt[!grepl("sin_info", anios_cot), anios_cot := paste0(anios_cot, "]")]
         
         #Arreglar columnas de las tablas
@@ -794,13 +794,13 @@ descargar_pensiones_pagadas <- function(fechas, bd) {
         
         # Encabezado de los datos
         head1 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 2)))[1,])
-        head1 <- gsub("Tipo de pensión", "tipo_pension", head1)
-        head1 <- gsub("Tramos de años cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
+        head1 <- gsub("Tipo de pensiÃ³n", "tipo_pension", head1)
+        head1 <- gsub("Tramos de aÃ±os cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
         
         head2 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 3)))[1,])
-        head2 <- gsub("Número", "numero", head2) 
-        head2 <- gsub("Pensión promedio autofinanciada", "pension_autofinanciada", head2)
-        head2 <- gsub("Pensión promedio  total \\(.*\\)", "pension_total", head2)
+        head2 <- gsub("NÃºmero", "numero", head2) 
+        head2 <- gsub("PensiÃ³n promedio autofinanciada", "pension_autofinanciada", head2)
+        head2 <- gsub("PensiÃ³n promedio  total \\(.*\\)", "pension_total", head2)
         head2[1] <- head1[1] ; head2[2] <- head1[2] ; head1[1] <- NA ; head1[2] <- NA ; head2 <- tolower(head2)
         
         # Armar el encabezado
@@ -818,7 +818,7 @@ descargar_pensiones_pagadas <- function(fechas, bd) {
         dt <- dt[!is.na(mujeres_numero)][!grepl("Total", anios_cot)]
         
         dt[, anios_cot := gsub(">", "(", anios_cot)][, anios_cot := gsub(" y <=", ", ", anios_cot)]
-        dt[, anios_cot := gsub(" año", "", anios_cot)][, anios_cot := gsub("S/I \\(3\\)", "sin_info", anios_cot)]
+        dt[, anios_cot := gsub(" aÃ±o", "", anios_cot)][, anios_cot := gsub("S/I \\(3\\)", "sin_info", anios_cot)]
         dt[!grepl("sin_info", anios_cot), anios_cot := paste0(anios_cot, "]")]
         
         #Arreglar columnas de las tablas
@@ -869,10 +869,10 @@ if (exists("pensiones_pagadas")) {
 
 try({
   
-  #Crear columna de años cotizados
+  #Crear columna de aÃ±os cotizados
   pensiones_pagadas_nuevo[, ":="(anios_cotizados = 
                                    gsub("\\s\\s", " ", 
-                                        gsub("sin_info", "Sin información",
+                                        gsub("sin_info", "Sin informaciÃ³n",
                                              gsub("]", "",
                                                   gsub(",", " y menor o igual a ", 
                                                        gsub("\\(", "Mayor a ", anios_cot))))),
@@ -900,10 +900,10 @@ write.csv2(pensiones_pagadas, file = "input_dashboard/pensiones_pagadas.csv", ro
 ### NUEVOS PENSIONADOS ###
 ##########################
 
-#Función para descargar datos de nuevos pensionados
+#FunciÃ³n para descargar datos de nuevos pensionados
 descargar_nuevos_pensionados <- function(fechas, bd) {
   
-  #Control para que corra igual la función por si la base de datos no se encuentra en el ambiente de trabajo
+  #Control para que corra igual la funciÃ³n por si la base de datos no se encuentra en el ambiente de trabajo
   if (missing(bd)) {
     bd <- data.table(anios_cot = character(), sexo = character(), numero = integer(), 
                      pension_autofinanciada = numeric(), densidad_cot = numeric(), fecha = character())
@@ -911,13 +911,13 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
     bd <- bd
   }
   
-  #Lista vacía para guardar los datos
+  #Lista vacÃ­a para guardar los datos
   consolidado <- list()
   
   #Descargar los archivos excel por fecha
   for (fecha in fechas) {
     
-    #Si es que los datos ya están en la base, saltar esa fecha de descarga
+    #Si es que los datos ya estÃ¡n en la base, saltar esa fecha de descarga
     if (fecha %in% unique(gsub(pattern = "-|01$","",x = bd$fecha))) next
     
     #indice para guardar la tabla de datos en el consolidado
@@ -935,10 +935,10 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         
         # Encabezado de los datos
         head1 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 2)))[1,])
-        head1 <- gsub("Pensión autofinanciada", "pension_autofinanciada", head1)
-        head1 <- gsub("Número", "numero", head1)
+        head1 <- gsub("PensiÃ³n autofinanciada", "pension_autofinanciada", head1)
+        head1 <- gsub("NÃºmero", "numero", head1)
         head1 <- gsub("Densidad de cotizaciones", "densidad_cot", head1)
-        head1 <- gsub("Tramos de años cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
+        head1 <- gsub("Tramos de aÃ±os cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
         
         head2 <- tolower(as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 3)))[1,]))
         
@@ -958,7 +958,7 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         dt <- dt[!is.na(anios_cot)][!grepl("Total", anios_cot)][!grepl("TOTAL", sexo)]
         dt[, sexo := tolower(sexo)]
         dt[, anios_cot := gsub(">", "(", anios_cot)][, anios_cot := gsub(" y <=", ", ", anios_cot)]
-        dt[, anios_cot := gsub(" año", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
+        dt[, anios_cot := gsub(" aÃ±o", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
         dt[!grepl("sin_info", anios_cot), anios_cot := paste0(anios_cot, "]")]
         
         #Arreglar columnas numericas
@@ -974,10 +974,10 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
       } else if (as.numeric(fecha) %between% c(201708,201803)) {
         
         head1 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 2)))[1,])
-        head1 <- gsub("Pensión autofinanciada promedio", "pension_autofinanciada", head1)
-        head1 <- gsub("Número", "numero", head1)
+        head1 <- gsub("PensiÃ³n autofinanciada promedio", "pension_autofinanciada", head1)
+        head1 <- gsub("NÃºmero", "numero", head1)
         head1 <- gsub("Densidad de cotizaciones", "densidad_cot", head1)
-        head1 <- gsub("Tramos de años cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
+        head1 <- gsub("Tramos de aÃ±os cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
         
         head2 <- tolower(as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 3)))[1,]))
         
@@ -997,7 +997,7 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         dt <- dt[!is.na(anios_cot)][!grepl("Total", anios_cot)][!grepl("TOTAL|Total", sexo)]
         dt[, sexo := tolower(sexo)]
         dt[, anios_cot := gsub(">", "(", anios_cot)][, anios_cot := gsub(" y <=", ", ", anios_cot)]
-        dt[, anios_cot := gsub(" año", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
+        dt[, anios_cot := gsub(" aÃ±o", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
         dt[!grepl("sin_info", anios_cot), anios_cot := paste0(anios_cot, "]")]
         
         #Arreglar columnas numericas
@@ -1019,10 +1019,10 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         
         # Encabezado de los datos
         head1 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 2)))[1,])
-        head1 <- gsub("Pensión promedio", "pension_autofinanciada", head1)
-        head1 <- gsub("Número", "numero", head1)
+        head1 <- gsub("PensiÃ³n promedio", "pension_autofinanciada", head1)
+        head1 <- gsub("NÃºmero", "numero", head1)
         head1 <- gsub("Densidad de cotizaciones", "densidad_cot", head1)
-        head1 <- gsub("Tramos de años cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
+        head1 <- gsub("Tramos de aÃ±os cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
         
         head2 <- tolower(as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 3)))[1,]))
         
@@ -1042,7 +1042,7 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         dt <- dt[!is.na(anios_cot)][!grepl("Total", anios_cot)][!grepl("TOTAL|Total", sexo)]
         dt[, sexo := tolower(sexo)][, sexo := gsub("femenino", "mujeres", sexo)][, sexo := gsub("masculino", "hombres", sexo)]
         dt[, anios_cot := gsub(">", "(", anios_cot)][, anios_cot := gsub(" y <=", ", ", anios_cot)]
-        dt[, anios_cot := gsub(" año", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
+        dt[, anios_cot := gsub(" aÃ±o", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
         dt[!grepl("sin_info", anios_cot), anios_cot := paste0(anios_cot, "]")]
         
         #Arreglar columnas numericas
@@ -1061,11 +1061,11 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         
         # Encabezado de los datos
         head1 <- as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 2)))[1,])
-        head1 <- gsub("Tramos de años cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
+        head1 <- gsub("Tramos de aÃ±os cotizados", "anios_cot", head1) ; head1 <- tolower(na.locf(head1))
         
         head2 <- tolower(as.character(as.matrix(suppressMessages(read_excel(path = archivo_temporal, skip = 3)))[1,]))
-        head2 <- gsub("número", "numero", head2)
-        head2 <- gsub("pensión promedio", "pension_autofinanciada", head2)
+        head2 <- gsub("nÃºmero", "numero", head2)
+        head2 <- gsub("pensiÃ³n promedio", "pension_autofinanciada", head2)
         head2 <- gsub("densidad promedio", "densidad_cot", head2)
         
         # Armar el encabezado
@@ -1082,7 +1082,7 @@ descargar_nuevos_pensionados <- function(fechas, bd) {
         #Arreglar la tabla
         dt <- dt[!grepl("Total", anios_cot)][!is.na(mujeres_numero)]
         dt[, anios_cot := gsub(">", "(", anios_cot)][, anios_cot := gsub(" y <=", ", ", anios_cot)]
-        dt[, anios_cot := gsub(" año", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
+        dt[, anios_cot := gsub(" aÃ±o", "", anios_cot)][, anios_cot := gsub("S/I \\(4\\)", "sin_info", anios_cot)]
         dt[!grepl("sin_info", anios_cot), anios_cot := paste0(anios_cot, "]")]
         
         #Ordenar la tabla
@@ -1131,10 +1131,10 @@ if (exists("nuevos_pensionados")) {
 
 try({
   
-  #Crear columnas de años cotizados y fecha
+  #Crear columnas de aÃ±os cotizados y fecha
   nuevos_pensionados_new[, ":="(anios_cotizados = 
                                   gsub("\\s\\s", " ", 
-                                       gsub("sin_info", "Sin información",
+                                       gsub("sin_info", "Sin informaciÃ³n",
                                             gsub("]", "",
                                                  gsub(",", " y menor o igual a ", 
                                                       gsub("\\(", "Mayor a ", anios_cot))))),
@@ -1158,13 +1158,13 @@ rm(nuevos_pensionados_new)
 write.csv2(nuevos_pensionados, file = "input_dashboard/nuevos_pensionados.csv", row.names = F, na = "")
 
 ############################################################
-### DATOS DEL SISTEMA DE PENSIONES SOLIDARIAS POR REGIÓN ###
+### DATOS DEL SISTEMA DE PENSIONES SOLIDARIAS POR REGIÃ“N ###
 ############################################################
 
-#Función para obtener los beneficiarios sps por region
+#FunciÃ³n para obtener los beneficiarios sps por region
 descargar_sps <- function(fechas, bd) {
   
-  #Control para que corra igual la función por si la base de datos no se encuentra en el ambiente de trabajo
+  #Control para que corra igual la funciÃ³n por si la base de datos no se encuentra en el ambiente de trabajo
   if (missing(bd)) {
     bd <- data.table(fecha = character(), region = character(), tipo_pension = character(),
                      tipo_beneficio = character(), sexo = character(), num_beneficiarios = integer(),
@@ -1173,13 +1173,13 @@ descargar_sps <- function(fechas, bd) {
     bd <- bd
   }
   
-  #Lista vacía para guardar las tablas de datos
+  #Lista vacÃ­a para guardar las tablas de datos
   consolidado <- list()
   
-  #Descargar la información para cada fecha
+  #Descargar la informaciÃ³n para cada fecha
   for (fecha in fechas) {
     
-    #Saltar fechas que ya están en la base
+    #Saltar fechas que ya estÃ¡n en la base
     if (fecha %in% unique(gsub(pattern = "-|01$","",x = bd$fecha))) next
     
     #Crear un indice para ir guardando las tablas en un consolidado
@@ -1200,7 +1200,7 @@ descargar_sps <- function(fechas, bd) {
                        "num_hombres_fin_estatal","monto_hombres_fin_estatal","num_mujeres_fin_cuenta_ind",
                        "monto_mujeres_fin_cuenta_ind","num_hombres_fin_cuenta_ind","monto_hombres_fin_cuenta_ind")
         
-        #Rellenar datos y eliminar los totales y partes vacías
+        #Rellenar datos y eliminar los totales y partes vacÃ­as
         dt <- fill(dt, region)
         dt <- dt[!grepl("^Total",region)]
         dt <- dt[-c(120:125),]
@@ -1236,24 +1236,24 @@ descargar_sps <- function(fechas, bd) {
         #Unir las tablas
         dt <- rbindlist(list(dt_muj_est, dt_hom_est, dt_muj_ind, dt_hom_ind))
         
-        #Crear columnas fecha y numero de región
+        #Crear columnas fecha y numero de regiÃ³n
         dt[, fecha := paste(year(ym(fecha)), substr(fecha,5,6), "01", sep = "-")]
         dt[, num_region := fcase(region == "Arica y Parinacota", 1,
-                                 region == "Tarapacá", 2,
+                                 region == "TarapacÃ¡", 2,
                                  region == "Antofagasta", 3,
                                  region == "Atacama", 4,
                                  region == "Coquimbo", 5,
-                                 region == "Valparaíso", 6,
+                                 region == "ValparaÃ­so", 6,
                                  region == "Metropolitana de Santiago", 7,
                                  region == "Libertador Gral. Bernardo O'Higgins", 8,
                                  region == "Maule", 9,
-                                 region == "Ñuble", 10,
-                                 region == "Biobío", 11,
-                                 region == "La Araucanía", 12,
-                                 region == "Los Ríos", 13,
+                                 region == "Ã‘uble", 10,
+                                 region == "BiobÃ­o", 11,
+                                 region == "La AraucanÃ­a", 12,
+                                 region == "Los RÃ­os", 13,
                                  region == "Los Lagos", 14,
-                                 region == "Aysén del Gral. Carlos Ibáñez del Campo", 15,
-                                 region == "Magallanes y de la Antártica Chilena", 16,
+                                 region == "AysÃ©n del Gral. Carlos IbÃ¡Ã±ez del Campo", 15,
+                                 region == "Magallanes y de la AntÃ¡rtica Chilena", 16,
                                  default = 0)]
         
         #Guardar los datos en el consolidado
@@ -1268,10 +1268,10 @@ descargar_sps <- function(fechas, bd) {
                               grepl("AYSEN", aux), "AYSEN", 
                               grepl("MAGA", aux), "MAGALLANES", 
                               grepl("METRO", aux), "METROPOLITANA", 
-                              grepl("NUBLE", aux), "CHILLÁN",
-                              grepl("SIN INFORMACION", aux), "Sin Información",
+                              grepl("NUBLE", aux), "CHILLÃN",
+                              grepl("SIN INFORMACION", aux), "Sin InformaciÃ³n",
                               rep_len(TRUE, length(aux)), aux)]
-        region_nuble <- data.table(region = "Ñuble", num_region = 10, aux = "ÑUBLE")
+        region_nuble <- data.table(region = "Ã‘uble", num_region = 10, aux = "Ã‘UBLE")
         region <- rbindlist(list(region, region_nuble), use.names = T)
         
       } else if (as.numeric(fecha) %between% c(201905,202001)) {
@@ -1281,7 +1281,7 @@ descargar_sps <- function(fechas, bd) {
         names(dt) <- c("region","tipo_beneficio","num_mujeres_fin_estatal","monto_mujeres_fin_estatal",
                        "num_hombres_fin_estatal","monto_hombres_fin_estatal")
         
-        #Rellenar las columnas y eliminar datos vacíos
+        #Rellenar las columnas y eliminar datos vacÃ­os
         dt <- fill(dt, region)
         dt <- dt[!grepl("^Total|^Fuente|^Notas|^\\(",region)]
         
@@ -1302,24 +1302,24 @@ descargar_sps <- function(fechas, bd) {
         #Unir las tablas
         dt <- rbindlist(list(dt_muj_est, dt_hom_est))
         
-        #Crear columna fecha y número de región
+        #Crear columna fecha y nÃºmero de regiÃ³n
         dt[, fecha := paste(year(ym(fecha)), substr(fecha,5,6), "01", sep = "-")]
         dt[, num_region := fcase(region == "Arica y Parinacota", 1,
-                                 region == "Tarapacá", 2,
+                                 region == "TarapacÃ¡", 2,
                                  region == "Antofagasta", 3,
                                  region == "Atacama", 4,
                                  region == "Coquimbo", 5,
-                                 region == "Valparaíso", 6,
+                                 region == "ValparaÃ­so", 6,
                                  region == "Metropolitana de Santiago", 7,
                                  region == "Libertador Gral. Bernardo O'Higgins", 8,
                                  region == "Maule", 9,
-                                 region == "Ñuble", 10,
-                                 region == "Biobío", 11,
-                                 region == "La Araucanía", 12,
-                                 region == "Los Ríos", 13,
+                                 region == "Ã‘uble", 10,
+                                 region == "BiobÃ­o", 11,
+                                 region == "La AraucanÃ­a", 12,
+                                 region == "Los RÃ­os", 13,
                                  region == "Los Lagos", 14,
-                                 region == "Aysén del Gral. Carlos Ibáñez del Campo", 15,
-                                 region == "Magallanes y de la Antártica Chilena", 16,
+                                 region == "AysÃ©n del Gral. Carlos IbÃ¡Ã±ez del Campo", 15,
+                                 region == "Magallanes y de la AntÃ¡rtica Chilena", 16,
                                  default = 0)]
         
         #Guardar los datos en el consolidado
@@ -1332,7 +1332,7 @@ descargar_sps <- function(fechas, bd) {
         names(dt) <- c("region","tipo_beneficio","num_mujeres_fin_estatal","monto_mujeres_fin_estatal",
                        "num_hombres_fin_estatal","monto_hombres_fin_estatal")
         
-        #Rellenar los datos de región y eliminar los totales
+        #Rellenar los datos de regiÃ³n y eliminar los totales
         dt <- fill(dt,region)
         dt <- dt[!grepl("^TOTAL|^Total|^\\(",region)]
         dt[, aux := trimws(gsub("[0-9]{1,}", "", region))][,region := NULL]
@@ -1370,7 +1370,7 @@ descargar_sps <- function(fechas, bd) {
 }
 descargar_sps <- cmpfun(descargar_sps)
 
-#Descargar datos del sistema de pensiones solidarias (desde el 2010, antes de ese año los datos están raros)
+#Descargar datos del sistema de pensiones solidarias (desde el 2010, antes de ese aÃ±o los datos estÃ¡n raros)
 if (exists("datos_sps")) {
   
   sps_nuevo <- descargar_sps(rev(fechas_consulta[fechas_consulta > 200912]), datos_sps)
@@ -1383,7 +1383,7 @@ if (exists("datos_sps")) {
 
 try({
   
-  #Limpiar variables categóricas y missing values pasarlos a cero
+  #Limpiar variables categÃ³ricas y missing values pasarlos a cero
   sps_nuevo[, ":="(tipo_beneficio = trimws(gsub("\\([0-9]\\)", "", tipo_beneficio)),
                    num_beneficiarios = ifelse(is.na(num_beneficiarios), 0, num_beneficiarios),
                    mon_beneficio = ifelse(is.na(mon_beneficio), 0, mon_beneficio))]
@@ -1391,7 +1391,7 @@ try({
   #Complemento de trabajo pesado tiene solo valores iguales a cero. Se elimina.
   sps_nuevo <- sps_nuevo[!grepl("Complemento", tipo_beneficio)]
   
-  #Colapsar los APS de Vejez, crear tipo de pensión
+  #Colapsar los APS de Vejez, crear tipo de pensiÃ³n
   sps_nuevo[, tipo_beneficio := fcase(tipo_beneficio == "PBS Vejez", "PBS Vejez",
                                       tipo_beneficio == "PBS Invalidez", "PBS Invalidez",
                                       tipo_beneficio == "APS Invalidez", "APS Invalidez",
@@ -1399,7 +1399,7 @@ try({
   sps_nuevo[, tipo_pension := fcase(grepl("APS", tipo_beneficio), "APS",
                                     grepl("PBS", tipo_beneficio), "PBS")]
   
-  #Sumar el número de beneficiarios y el monto de beneficio por fecha, region, tipo de pensión, sexo y beneficio
+  #Sumar el nÃºmero de beneficiarios y el monto de beneficio por fecha, region, tipo de pensiÃ³n, sexo y beneficio
   sps_nuevo <- sps_nuevo[,.(num_beneficiarios = sum(num_beneficiarios), monto_beneficio = sum(mon_beneficio)),
                          by =.(fecha, region, tipo_pension, tipo_beneficio, sexo)]
   
@@ -1423,10 +1423,10 @@ rm(sps_nuevo)
 #Guardar datos
 write.csv2(datos_sps, "input_dashboard/datos_sps.csv", row.names = F)
 
-#Función para extraer la UF del Banco Central
+#FunciÃ³n para extraer la UF del Banco Central
 extraer_uf <- function(fechas, bd) {
   
-  #Control para que corra igual la función por si la base de datos no se encuentra en el ambiente de trabajo
+  #Control para que corra igual la funciÃ³n por si la base de datos no se encuentra en el ambiente de trabajo
   if (missing(bd)) {
     
     bd <- data.table(fecha = character(), uf = numeric())
@@ -1436,28 +1436,28 @@ extraer_uf <- function(fechas, bd) {
     bd <- bd
   }
   
-  #Crear lista vacía para ir guardando las series anuales
+  #Crear lista vacÃ­a para ir guardando las series anuales
   series_uf <- vector("list", length(fechas))
   
-  #Abrir sesión remota de Chrome
+  #Abrir sesiÃ³n remota de Chrome
   remDr <- remoteDriver(remoteServerAddr = "192.168.100.34", port = 4445L, browserName = "chrome")
   remDr$open()
   
-  #Navegar por la Base de Datos Estadísticos del Banco Central
+  #Navegar por la Base de Datos EstadÃ­sticos del Banco Central
   remDr$navigate("https://si3.bcentral.cl/Siete/ES/Siete/Cuadro/CAP_PRECIOS/MN_CAP_PRECIOS/UF_IVP_DIARIO")
   
   for (fecha in fechas) {
     
-    #Saltar año de descarga si ya está en la base descargada
+    #Saltar aÃ±o de descarga si ya estÃ¡ en la base descargada
     if (fecha %in% bd[, year(ymd(fecha))] & 
         bd[year(ymd(fecha)) == fecha, .N] == 12) next
     
     tryCatch({
       
-      #Crear un índice para ir guardando los data table
+      #Crear un Ã­ndice para ir guardando los data table
       i <- match(fecha, fechas)
       
-      #Buscar el año para extraer la serie
+      #Buscar el aÃ±o para extraer la serie
       webelem <- remDr$findElement(using = "css", paste0("[value = '",fecha,"']"))
       webelem$clickElement()
       
@@ -1473,8 +1473,8 @@ extraer_uf <- function(fechas, bd) {
                                                         "%d %b%Y", locale = locale("es")),
                                      uf = as.numeric(gsub(",",".", gsub("\\.","",uf))))]
       
-      #Se filtra por la UF del último día del mes. En la tabla se indica que la fecha es del primero del mes para 
-      #poder hacer un merge directo con las demás tablas
+      #Se filtra por la UF del Ãºltimo dÃ­a del mes. En la tabla se indica que la fecha es del primero del mes para 
+      #poder hacer un merge directo con las demÃ¡s tablas
       tidy_serie <- tidy_serie[,.(uf = tail(uf, n = 1)), by =.(fecha = paste(year(fecha), substr(fecha,6,7), "01",
                                                                              sep = "-"))]
       
