@@ -12,7 +12,7 @@ sapply(c("shiny", "data.table", "tidyverse", "lubridate", "shinyWidgets", "shiny
        require, character.only = T, quietly = T)
 
 #Directorio
-setwd("//192.168.100.101/g/nicolas_rojas/viz_webpage/genero/brechas_pensiones/dashboard")
+#setwd("")
 
 #Leer los datos
 poblacion <- fread("indicadores/input_dashboard/poblacion_celade.csv", dec= ",", na.strings = "NA")
@@ -467,18 +467,18 @@ conditionalPanel(condition = "input.indicador == 'Beneficiarios SPS'",
 ## TABLA DE DATOS ##
 ####################
 
-            tabPanel("Tabla Estadística",
-                     br(), #espacio
-                     div(style = "display:inline-block", 
-                         uiOutput("anio_tabla")),
+#            tabPanel("Tabla Estadística",
+#                     br(), #espacio
+#                     div(style = "display:inline-block", 
+#                         uiOutput("anio_tabla")),
                      
-                     div(style = "display:inline-block", 
-                         uiOutput("mes_tabla")),
+#                     div(style = "display:inline-block", 
+#                         uiOutput("mes_tabla")),
                      
                      #Tabla de datos
-                     gt_output("tabla_estadistica")
+#                     gt_output("tabla_estadistica")
                      
-                     ),
+#                     ),
 
            ),
             
